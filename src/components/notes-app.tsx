@@ -6,7 +6,6 @@ import {
   createNoteOnServer,
   updateNoteOnServer,
   deleteNoteOnServer,
-  updateNote,
   deleteNote,
 } from "@/lib/notes-store"
 import { NotesSidebar } from "./notes-sidebar"
@@ -23,7 +22,9 @@ export function NotesApp() {
   const [isLoaded, setIsLoaded] = useState(false)
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const isMobile = useIsMobile()
-  const updateTimers = useState(() => new Map<string, ReturnType<typeof setTimeout>>())[0]
+  const [isEditing, setIsEditing] = useState(false)
+  const [draftTitle, setDraftTitle] = useState("")
+  const [draftContent, setDraftContent] = useState("")
 
   // Load notes from server on mount
   useEffect(() => {
@@ -35,6 +36,8 @@ export function NotesApp() {
         setNotes(loadedNotes)
         if (loadedNotes.length > 0) {
           setSelectedNoteId(loadedNotes[0].id)
+          setDraftTitle(loadedNotes[0].title)
+          setDraftContent(loadedNotes[0].content)
         }
       } catch (err) {
         console.error(err)
@@ -48,46 +51,33 @@ export function NotesApp() {
     }
   }, [])
 
-  useEffect(() => {
-    return () => {
-      updateTimers.forEach((timer) => clearTimeout(timer))
-      updateTimers.clear()
-    }
-  }, [updateTimers])
-
-  const scheduleUpdate = useCallback(
-    (note: Note) => {
-      const existingTimer = updateTimers.get(note.id)
-      if (existingTimer) clearTimeout(existingTimer)
-      const timer = setTimeout(async () => {
-        updateTimers.delete(note.id)
-        try {
-          const saved = await updateNoteOnServer(note.id, note)
-          setNotes((prev) =>
-            prev.map((item) => (item.id === saved.id ? saved : item))
-          )
-        } catch (err) {
-          console.error(err)
-        }
-      }, 400)
-      updateTimers.set(note.id, timer)
-    },
-    [updateTimers]
-  )
-
   const handleCreateNote = useCallback(() => {
     const create = async () => {
       try {
+        const current = notes.find((note) => note.id === selectedNoteId)
+        const isDirty =
+          isEditing &&
+          current &&
+          (draftTitle !== current.title || draftContent !== current.content)
+        if (isDirty) {
+          const shouldDiscard = window.confirm(
+            "You have unsaved changes. Discard them and create a new note?"
+          )
+          if (!shouldDiscard) return
+        }
         const newNote = await createNoteOnServer()
         setNotes((prev) => [newNote, ...prev])
         setSelectedNoteId(newNote.id)
+        setDraftTitle(newNote.title)
+        setDraftContent(newNote.content)
+        setIsEditing(true)
         setSidebarOpen(false)
       } catch (err) {
         console.error(err)
       }
     }
     create()
-  }, [])
+  }, [draftContent, draftTitle, isEditing, notes, selectedNoteId])
 
   const handleDeleteNote = useCallback(
     (id: string) => {
@@ -114,33 +104,95 @@ export function NotesApp() {
   const handleContentChange = useCallback(
     (content: string) => {
       if (!selectedNoteId) return
-      setNotes((prev) => {
-        const updated = updateNote(prev, selectedNoteId, { content })
-        const current = updated.find((note) => note.id === selectedNoteId)
-        if (current) scheduleUpdate(current)
-        return updated
-      })
+      setDraftContent(content)
     },
-    [selectedNoteId, scheduleUpdate]
+    [selectedNoteId]
   )
 
   const handleTitleChange = useCallback(
     (title: string) => {
       if (!selectedNoteId) return
-      setNotes((prev) => {
-        const updated = updateNote(prev, selectedNoteId, { title })
-        const current = updated.find((note) => note.id === selectedNoteId)
-        if (current) scheduleUpdate(current)
-        return updated
-      })
+      setDraftTitle(title)
     },
-    [selectedNoteId, scheduleUpdate]
+    [selectedNoteId]
   )
 
-  const handleSelectNote = useCallback((id: string) => {
-    setSelectedNoteId(id)
-    setSidebarOpen(false)
-  }, [])
+  const handleSelectNote = useCallback(
+    (id: string) => {
+      if (id === selectedNoteId) return
+      const current = notes.find((note) => note.id === selectedNoteId)
+      const isDirty =
+        isEditing &&
+        current &&
+        (draftTitle !== current.title || draftContent !== current.content)
+      if (isDirty) {
+        const shouldDiscard = window.confirm(
+          "You have unsaved changes. Discard them and switch notes?"
+        )
+        if (!shouldDiscard) return
+      }
+      const selected = notes.find((note) => note.id === id)
+      setSelectedNoteId(id)
+      setSidebarOpen(false)
+      if (selected) {
+        setDraftTitle(selected.title)
+        setDraftContent(selected.content)
+      }
+      setIsEditing(false)
+    },
+    [draftContent, draftTitle, isEditing, notes, selectedNoteId]
+  )
+
+  const handleEnterEditMode = useCallback(() => {
+    if (!selectedNoteId) return
+    const selected = notes.find((note) => note.id === selectedNoteId)
+    if (selected) {
+      setDraftTitle(selected.title)
+      setDraftContent(selected.content)
+    }
+    setIsEditing(true)
+  }, [notes, selectedNoteId])
+
+  const handleCancelEdit = useCallback(() => {
+    if (!selectedNoteId) return
+    const selected = notes.find((note) => note.id === selectedNoteId)
+    const isDirty =
+      isEditing &&
+      selected &&
+      (draftTitle !== selected.title || draftContent !== selected.content)
+    if (isDirty) {
+      const shouldDiscard = window.confirm(
+        "You have unsaved changes. Discard them?"
+      )
+      if (!shouldDiscard) return
+    }
+    if (selected) {
+      setDraftTitle(selected.title)
+      setDraftContent(selected.content)
+    }
+    setIsEditing(false)
+  }, [draftContent, draftTitle, isEditing, notes, selectedNoteId])
+
+  const handleSave = useCallback(async () => {
+    if (!selectedNoteId) return
+    const selected = notes.find((note) => note.id === selectedNoteId)
+    if (!selected) return
+    try {
+      const saved = await updateNoteOnServer(selectedNoteId, {
+        ...selected,
+        title: draftTitle,
+        content: draftContent,
+      })
+      setNotes((prev) =>
+        prev.map((note) => (note.id === saved.id ? saved : note))
+      )
+      setDraftTitle(saved.title)
+      setDraftContent(saved.content)
+      setIsEditing(false)
+    } catch (err) {
+      console.error(err)
+    }
+  }, [draftContent, draftTitle, notes, selectedNoteId])
 
   const selectedNote = notes.find((n) => n.id === selectedNoteId)
 
@@ -197,6 +249,12 @@ export function NotesApp() {
         {selectedNote ? (
           <MarkdownEditor
             note={selectedNote}
+            isEditing={isEditing}
+            draftTitle={draftTitle}
+            draftContent={draftContent}
+            onEdit={handleEnterEditMode}
+            onSave={handleSave}
+            onCancel={handleCancelEdit}
             onContentChange={handleContentChange}
             onTitleChange={handleTitleChange}
           />
