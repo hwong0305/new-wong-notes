@@ -6,36 +6,80 @@ export interface Note {
   updatedAt: number
 }
 
-const STORAGE_KEY = 'notes-app-data'
-
-export function generateId(): string {
-  return Math.random().toString(36).substring(2) + Date.now().toString(36)
+interface ServerNote {
+  id: string
+  title?: string
+  name?: string
+  content?: string
+  body?: string
+  createdAt?: number
+  updatedAt?: number
 }
 
-export function getNotes(): Note[] {
-  if (typeof window === 'undefined') return []
-  const data = localStorage.getItem(STORAGE_KEY)
-  if (!data) return []
-  try {
-    return JSON.parse(data)
-  } catch {
-    return []
-  }
+const API_BASE = import.meta.env.VITE_API_BASE_URL || ''
+
+const toNumber = (value: unknown): number | null => {
+  const num = Number(value)
+  return Number.isFinite(num) ? num : null
 }
 
-export function saveNotes(notes: Note[]): void {
-  if (typeof window === 'undefined') return
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(notes))
-}
-
-export function createNote(): Note {
+const normalizeNote = (note: ServerNote): Note => {
+  const createdAtValue = toNumber(note.createdAt)
+  const updatedAtValue = toNumber(note.updatedAt)
+  const createdAt = createdAtValue ?? updatedAtValue ?? Date.now()
+  const updatedAt = updatedAtValue ?? createdAt
   return {
-    id: generateId(),
-    title: 'Untitled Note',
-    content: '',
-    createdAt: Date.now(),
-    updatedAt: Date.now(),
+    id: note.id,
+    title: typeof note.title === 'string' ? note.title : note.name ?? 'Untitled Note',
+    content: typeof note.content === 'string' ? note.content : note.body ?? '',
+    createdAt,
+    updatedAt,
   }
+}
+
+const request = async <T>(path: string, options?: RequestInit): Promise<T> => {
+  const response = await fetch(`${API_BASE}${path}`, {
+    headers: {
+      'Content-Type': 'application/json',
+      ...(options?.headers ?? {}),
+    },
+    ...options,
+  })
+  if (!response.ok) {
+    throw new Error(`Request failed: ${response.status}`)
+  }
+  return response.json() as Promise<T>
+}
+
+export async function fetchNotes(): Promise<Note[]> {
+  const data = await request<ServerNote[]>('/api/notes')
+  return data.map(normalizeNote)
+}
+
+export async function createNoteOnServer(): Promise<Note> {
+  const data = await request<ServerNote>('/api/notes', {
+    method: 'POST',
+    body: JSON.stringify({
+      title: 'Untitled Note',
+      content: '',
+    }),
+  })
+  return normalizeNote(data)
+}
+
+export async function updateNoteOnServer(id: string, note: Note): Promise<Note> {
+  const data = await request<ServerNote>(`/api/notes/${id}`, {
+    method: 'PUT',
+    body: JSON.stringify({
+      title: note.title,
+      content: note.content,
+    }),
+  })
+  return normalizeNote(data)
+}
+
+export async function deleteNoteOnServer(id: string): Promise<void> {
+  await request(`/api/notes/${id}`, { method: 'DELETE' })
 }
 
 export function updateNote(notes: Note[], id: string, updates: Partial<Note>): Note[] {

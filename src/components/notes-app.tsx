@@ -2,9 +2,10 @@
 import { useState, useEffect, useCallback } from "react"
 import {
   Note,
-  getNotes,
-  saveNotes,
-  createNote,
+  fetchNotes,
+  createNoteOnServer,
+  updateNoteOnServer,
+  deleteNoteOnServer,
   updateNote,
   deleteNote,
 } from "@/lib/notes-store"
@@ -22,40 +23,90 @@ export function NotesApp() {
   const [isLoaded, setIsLoaded] = useState(false)
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const isMobile = useIsMobile()
+  const updateTimers = useState(() => new Map<string, ReturnType<typeof setTimeout>>())[0]
 
-  // Load notes from localStorage on mount
+  // Load notes from server on mount
   useEffect(() => {
-    const loadedNotes = getNotes()
-    setNotes(loadedNotes)
-    if (loadedNotes.length > 0) {
-      setSelectedNoteId(loadedNotes[0].id)
+    let isActive = true
+    const load = async () => {
+      try {
+        const loadedNotes = await fetchNotes()
+        if (!isActive) return
+        setNotes(loadedNotes)
+        if (loadedNotes.length > 0) {
+          setSelectedNoteId(loadedNotes[0].id)
+        }
+      } catch (err) {
+        console.error(err)
+      } finally {
+        if (isActive) setIsLoaded(true)
+      }
     }
-    setIsLoaded(true)
+    load()
+    return () => {
+      isActive = false
+    }
   }, [])
 
-  // Save notes to localStorage whenever they change
   useEffect(() => {
-    if (isLoaded) {
-      saveNotes(notes)
+    return () => {
+      updateTimers.forEach((timer) => clearTimeout(timer))
+      updateTimers.clear()
     }
-  }, [notes, isLoaded])
+  }, [updateTimers])
+
+  const scheduleUpdate = useCallback(
+    (note: Note) => {
+      const existingTimer = updateTimers.get(note.id)
+      if (existingTimer) clearTimeout(existingTimer)
+      const timer = setTimeout(async () => {
+        updateTimers.delete(note.id)
+        try {
+          const saved = await updateNoteOnServer(note.id, note)
+          setNotes((prev) =>
+            prev.map((item) => (item.id === saved.id ? saved : item))
+          )
+        } catch (err) {
+          console.error(err)
+        }
+      }, 400)
+      updateTimers.set(note.id, timer)
+    },
+    [updateTimers]
+  )
 
   const handleCreateNote = useCallback(() => {
-    const newNote = createNote()
-    setNotes((prev) => [newNote, ...prev])
-    setSelectedNoteId(newNote.id)
-    setSidebarOpen(false)
+    const create = async () => {
+      try {
+        const newNote = await createNoteOnServer()
+        setNotes((prev) => [newNote, ...prev])
+        setSelectedNoteId(newNote.id)
+        setSidebarOpen(false)
+      } catch (err) {
+        console.error(err)
+      }
+    }
+    create()
   }, [])
 
   const handleDeleteNote = useCallback(
     (id: string) => {
-      setNotes((prev) => {
-        const newNotes = deleteNote(prev, id)
-        if (selectedNoteId === id) {
-          setSelectedNoteId(newNotes.length > 0 ? newNotes[0].id : null)
+      const remove = async () => {
+        try {
+          await deleteNoteOnServer(id)
+        } catch (err) {
+          console.error(err)
+        } finally {
+          setNotes((prev) => {
+            const newNotes = deleteNote(prev, id)
+            if (selectedNoteId === id) {
+              setSelectedNoteId(newNotes.length > 0 ? newNotes[0].id : null)
+            }
+            return newNotes
+          })
         }
-        return newNotes
-      })
+      }
+      remove()
     },
     [selectedNoteId]
   )
@@ -63,17 +114,27 @@ export function NotesApp() {
   const handleContentChange = useCallback(
     (content: string) => {
       if (!selectedNoteId) return
-      setNotes((prev) => updateNote(prev, selectedNoteId, { content }))
+      setNotes((prev) => {
+        const updated = updateNote(prev, selectedNoteId, { content })
+        const current = updated.find((note) => note.id === selectedNoteId)
+        if (current) scheduleUpdate(current)
+        return updated
+      })
     },
-    [selectedNoteId]
+    [selectedNoteId, scheduleUpdate]
   )
 
   const handleTitleChange = useCallback(
     (title: string) => {
       if (!selectedNoteId) return
-      setNotes((prev) => updateNote(prev, selectedNoteId, { title }))
+      setNotes((prev) => {
+        const updated = updateNote(prev, selectedNoteId, { title })
+        const current = updated.find((note) => note.id === selectedNoteId)
+        if (current) scheduleUpdate(current)
+        return updated
+      })
     },
-    [selectedNoteId]
+    [selectedNoteId, scheduleUpdate]
   )
 
   const handleSelectNote = useCallback((id: string) => {

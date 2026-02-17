@@ -77,7 +77,7 @@ export function NotesSidebar({
   }
 
   return (
-    <div className="flex h-full flex-col bg-sidebar">
+    <div className="flex h-full min-h-0 flex-col bg-sidebar">
       <div className="flex items-center justify-between border-b border-sidebar-border px-4 py-3">
         <h1 className="text-lg font-semibold text-sidebar-foreground">Notes</h1>
         <Button
@@ -131,7 +131,7 @@ export function NotesSidebar({
         </DropdownMenu>
       </div>
 
-      <ScrollArea className="flex-1">
+      <ScrollArea className="flex-1 min-h-0">
         <div className="space-y-0.5 p-2">
           {filteredNotes.map((note) => (
             <div
