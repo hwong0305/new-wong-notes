@@ -210,7 +210,6 @@ export function NotesApp() {
       selectedNoteId={selectedNoteId}
       onSelectNote={handleSelectNote}
       onCreateNote={handleCreateNote}
-      onDeleteNote={handleDeleteNote}
       sortBy={sortBy}
       onSortChange={setSortBy}
     />
@@ -255,6 +254,15 @@ export function NotesApp() {
             onEdit={handleEnterEditMode}
             onSave={handleSave}
             onCancel={handleCancelEdit}
+            onDelete={() => {
+              if (!selectedNoteId) return
+              const shouldDelete = window.confirm(
+                "Delete this note? This action cannot be undone."
+              )
+              if (!shouldDelete) return
+              handleDeleteNote(selectedNoteId)
+              setIsEditing(false)
+            }}
             onContentChange={handleContentChange}
             onTitleChange={handleTitleChange}
           />

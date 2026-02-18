@@ -16,8 +16,6 @@ import {
   Search,
   SortAsc,
   Clock,
-  MoreHorizontal,
-  Trash2,
   ArrowUpDown,
 } from "lucide-react"
 import { useState, useMemo } from "react"
@@ -27,7 +25,6 @@ interface NotesSidebarProps {
   selectedNoteId: string | null
   onSelectNote: (id: string) => void
   onCreateNote: () => void
-  onDeleteNote: (id: string) => void
   sortBy: "name" | "recent"
   onSortChange: (sortBy: "name" | "recent") => void
 }
@@ -37,7 +34,6 @@ export function NotesSidebar({
   selectedNoteId,
   onSelectNote,
   onCreateNote,
-  onDeleteNote,
   sortBy,
   onSortChange,
 }: NotesSidebarProps) {
@@ -145,46 +141,15 @@ export function NotesSidebar({
               onClick={() => onSelectNote(note.id)}
             >
               <div className="flex items-start justify-between gap-2">
-                <div className="flex items-center gap-2 min-w-0">
+                <div className="flex flex-1 items-center gap-2 min-w-0">
                   <FileText className="h-4 w-4 shrink-0 opacity-60" />
-                  <span className="truncate font-medium text-sm">
+                  <span className="block truncate font-medium text-sm">
                     {note.title}
                   </span>
                 </div>
-                <DropdownMenu>
-                  <DropdownMenuTrigger
-                    asChild
-                    onClick={(e) => e.stopPropagation()}
-                  >
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className={cn(
-                        "h-6 w-6 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity",
-                        selectedNoteId === note.id
-                          ? "hover:bg-sidebar-primary/80"
-                          : "hover:bg-sidebar-accent"
-                      )}
-                    >
-                      <MoreHorizontal className="h-4 w-4" />
-                      <span className="sr-only">Note options</span>
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end">
-                    <DropdownMenuItem
-                      className="text-destructive focus:text-destructive"
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        onDeleteNote(note.id)
-                      }}
-                    >
-                      <Trash2 className="mr-2 h-4 w-4" />
-                      Delete
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
+                <div className="h-6 w-6 shrink-0" aria-hidden="true" />
               </div>
-              <div className="flex items-center gap-2 pl-6">
+              <div className="flex min-w-0 items-center gap-2 pl-6">
                 <span
                   className={cn(
                     "text-xs",
@@ -197,7 +162,7 @@ export function NotesSidebar({
                 </span>
                 <span
                   className={cn(
-                    "truncate text-xs",
+                    "min-w-0 flex-1 truncate text-xs",
                     selectedNoteId === note.id
                       ? "text-sidebar-primary-foreground/70"
                       : "text-muted-foreground"

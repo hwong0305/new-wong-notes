@@ -13,8 +13,8 @@ import {
   ImageIcon,
   FileCode,
   Edit3,
-  Eye,
   SplitSquareHorizontal,
+  Trash2,
 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { MarkdownPreview } from "./markdown-preview";
@@ -27,6 +27,7 @@ interface MarkdownEditorProps {
   onEdit: () => void;
   onSave: () => void;
   onCancel: () => void;
+  onDelete: () => void;
   onContentChange: (content: string) => void;
   onTitleChange: (title: string) => void;
 }
@@ -39,6 +40,7 @@ export function MarkdownEditor({
   onEdit,
   onSave,
   onCancel,
+  onDelete,
   onContentChange,
   onTitleChange,
 }: MarkdownEditorProps) {
@@ -211,6 +213,15 @@ export function MarkdownEditor({
           <div className="flex items-center gap-1 rounded-lg bg-muted p-1">
             {isEditing ? (
               <>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-7 gap-1.5 px-2.5 text-xs text-destructive hover:text-destructive"
+                  onClick={onDelete}
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                  Delete
+                </Button>
                 <Button
                   variant="secondary"
                   size="sm"
