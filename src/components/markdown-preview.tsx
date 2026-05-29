@@ -6,7 +6,7 @@ interface MarkdownPreviewProps {
 }
 
 // Simple markdown parser for common elements
-function parseMarkdown(text: string): string {
+export function parseMarkdown(text: string): string {
   if (!text) return ""
 
   let html = text
@@ -47,22 +47,22 @@ function parseMarkdown(text: string): string {
   // Strikethrough
   html = html.replace(/~~(.+?)~~/g, "<del>$1</del>")
 
+  // Images (before links so ![alt](url) is not matched by link pattern)
+  html = html.replace(
+    /!\[([^\]]*)\]\(([^)]+)\)/g,
+    '<img src="$2" alt="$1" class="image" />'
+  )
+
   // Links
   html = html.replace(
     /\[([^\]]+)\]\(([^)]+)\)/g,
     '<a href="$2" class="link" target="_blank" rel="noopener noreferrer">$1</a>'
   )
 
-  // Images
+  // Blockquotes (match both > and &gt; since HTML is already escaped)
   html = html.replace(
-    /!\[([^\]]*)\]\(([^)]+)\)/g,
-    '<img src="$2" alt="$1" class="image" />'
-  )
-
-  // Blockquotes
-  html = html.replace(
-    /^>\s+(.+)$/gm,
-    '<blockquote class="blockquote">$1</blockquote>'
+    /^(&gt;|>)\s+(.+)$/gm,
+    '<blockquote class="blockquote">$2</blockquote>'
   )
 
   // Horizontal rules

@@ -6,7 +6,7 @@ export interface Note {
   updatedAt: number
 }
 
-interface ServerNote {
+export interface ServerNote {
   id: string
   title?: string
   name?: string
@@ -23,7 +23,7 @@ const toNumber = (value: unknown): number | null => {
   return Number.isFinite(num) ? num : null
 }
 
-const normalizeNote = (note: ServerNote): Note => {
+export const normalizeNote = (note: ServerNote): Note => {
   const createdAtValue = toNumber(note.createdAt)
   const updatedAtValue = toNumber(note.updatedAt)
   const createdAt = createdAtValue ?? updatedAtValue ?? Date.now()

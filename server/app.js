@@ -228,6 +228,11 @@ app.get(/.*/, function (req, res) {
   res.sendFile(path.join(__dirname, "..", "dist", "index.html"));
 });
 
-app.listen(SERVER_PORT, () => {
-  console.log(`now listening on port ${SERVER_PORT}`);
-});
+export { app }
+
+const isMainModule = process.argv[1] === import.meta.filename || process.argv[1] === import.meta.url
+if (isMainModule) {
+  app.listen(SERVER_PORT, () => {
+    console.log(`now listening on port ${SERVER_PORT}`);
+  });
+}
