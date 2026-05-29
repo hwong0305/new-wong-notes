@@ -15,9 +15,12 @@ import {
   Edit3,
   SplitSquareHorizontal,
   Trash2,
+  History,
+  X,
 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { MarkdownPreview } from "./markdown-preview";
+import { VersionHistory } from "./version-history";
 
 interface MarkdownEditorProps {
   note: Note;
@@ -30,6 +33,7 @@ interface MarkdownEditorProps {
   onDelete: () => void;
   onContentChange: (content: string) => void;
   onTitleChange: (title: string) => void;
+  onRevert?: (note: Note, commitHash: string) => void;
 }
 
 export function MarkdownEditor({
@@ -43,11 +47,13 @@ export function MarkdownEditor({
   onDelete,
   onContentChange,
   onTitleChange,
+  onRevert,
 }: MarkdownEditorProps) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const [viewMode, setViewMode] = useState<"edit" | "preview" | "split">(
     "preview",
   );
+  const [historyOpen, setHistoryOpen] = useState(false);
 
   useEffect(() => {
     if (isEditing) {
@@ -237,6 +243,7 @@ export function MarkdownEditor({
                   className="h-7 gap-1.5 px-2.5 text-xs"
                   onClick={onCancel}
                 >
+                  <X className="h-3.5 w-3.5" />
                   Cancel
                 </Button>
               </>
@@ -251,6 +258,16 @@ export function MarkdownEditor({
                 Edit
               </Button>
             )}
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-7 gap-1.5 px-2.5 text-xs"
+              onClick={() => setHistoryOpen(true)}
+              title="Version history"
+            >
+              <History className="h-3.5 w-3.5" />
+              History
+            </Button>
             <Button
               variant={viewMode === "split" ? "secondary" : "ghost"}
               size="sm"
@@ -306,6 +323,15 @@ export function MarkdownEditor({
           </div>
         )}
       </div>
+
+      {onRevert && (
+        <VersionHistory
+          note={note}
+          open={historyOpen}
+          onOpenChange={setHistoryOpen}
+          onRevert={onRevert}
+        />
+      )}
     </div>
   );
 }

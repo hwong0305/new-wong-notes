@@ -30,7 +30,11 @@ const normalizeNote = (note: ServerNote): Note => {
   const updatedAt = updatedAtValue ?? createdAt
   return {
     id: note.id,
-    title: typeof note.title === 'string' ? note.title : note.name ?? 'Untitled Note',
+    title: (typeof note.title === 'string' && note.title)
+      ? note.title
+      : (typeof note.name === 'string' && note.name)
+        ? note.name
+        : 'Untitled note',
     content: typeof note.content === 'string' ? note.content : note.body ?? '',
     createdAt,
     updatedAt,
@@ -60,19 +64,20 @@ export async function createNoteOnServer(): Promise<Note> {
   const data = await request<ServerNote>('/api/notes', {
     method: 'POST',
     body: JSON.stringify({
-      title: 'Untitled Note',
+      title: '',
       content: '',
     }),
   })
   return normalizeNote(data)
 }
 
-export async function updateNoteOnServer(id: string, note: Note): Promise<Note> {
+export async function updateNoteOnServer(id: string, note: Note, commit?: string): Promise<Note> {
   const data = await request<ServerNote>(`/api/notes/${id}`, {
     method: 'PUT',
     body: JSON.stringify({
       title: note.title,
       content: note.content,
+      ...(commit ? { commit } : {}),
     }),
   })
   return normalizeNote(data)
@@ -99,4 +104,29 @@ export function sortNotes(notes: Note[], sortBy: 'name' | 'recent'): Note[] {
     }
     return b.updatedAt - a.updatedAt
   })
+}
+
+export interface GitCommit {
+  hash: string
+  date: string
+  message: string
+  author_name: string
+  author_email: string
+}
+
+export interface NoteLogsResponse {
+  data: Note
+  logs: { all: GitCommit[]; total: number; latest: GitCommit }
+}
+
+export async function fetchNoteLogs(id: string): Promise<NoteLogsResponse> {
+  return request<NoteLogsResponse>(`/api/notes/${id}/logs`)
+}
+
+export async function fetchNoteAtCommit(
+  id: string,
+  commit: string
+): Promise<Note> {
+  const data = await request<ServerNote>(`/api/notes/${id}/logs/${commit}`)
+  return normalizeNote(data)
 }

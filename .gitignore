@@ -27,6 +27,6 @@ yarn-error.log*
 next-env.d.ts
 
 dist/
-notes/
+notes/.gitkeep
 
 .DS_STORE

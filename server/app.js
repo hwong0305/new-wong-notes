@@ -28,6 +28,12 @@ app.use(express.static("dist"));
 app.use(morgan("dev"));
 app.use(cors());
 
+const formatTimestamp = () => {
+  const d = new Date();
+  const pad = (n) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+};
+
 const toNumber = (value) => {
   const num = Number(value);
   return Number.isFinite(num) ? num : null;
@@ -40,7 +46,7 @@ const normalizeNote = (rawNote = {}, fallbackId = "") => {
       ? rawNote.title
       : typeof rawNote.name === "string"
         ? rawNote.name
-        : "Untitled Note";
+        : "Untitled note";
   const content =
     typeof rawNote.content === "string"
       ? rawNote.content
@@ -122,7 +128,7 @@ app.post("/api/notes", async (req, res) => {
     }).normalized;
     await writeFile(path.join(NOTES_DIR, `${id}.md`), JSON.stringify(note));
     await git.add(`./${id}.md`);
-    await git.commit(`initial commit ${id}`);
+    await git.commit(`Created at ${formatTimestamp()}`);
     res.status(201).json(note);
   } catch (err) {
     console.log(err);
@@ -152,7 +158,7 @@ app.put("/api/notes/:id", async (req, res) => {
     }).normalized;
     await writeFile(path.join(NOTES_DIR, `${id}.md`), JSON.stringify(note));
     await git.add(`./${id}.md`);
-    await git.commit(commit || "unknown edit");
+    await git.commit(commit || `Edit at ${formatTimestamp()}`);
     res.json(note);
   } catch (err) {
     console.log(err);
@@ -167,7 +173,7 @@ app.delete("/api/notes/:id", async (req, res) => {
   const git = simpleGit(gitOptions);
   try {
     git.rm(`./${id}.md`);
-    git.commit(`Removed file ${id}`);
+    git.commit(`Deleted at ${formatTimestamp()}`);
     res.send({ success: true });
   } catch (err) {
     console.log(err);

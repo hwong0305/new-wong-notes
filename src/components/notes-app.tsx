@@ -14,6 +14,11 @@ import { Button } from "@/components/ui/button"
 import { Menu, FileText } from "lucide-react"
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
 import { useIsMobile } from "@/hooks/use-mobile"
+import {
+  ResizablePanelGroup,
+  ResizablePanel,
+  ResizableHandle,
+} from "@/components/ui/resizable"
 
 export function NotesApp() {
   const [notes, setNotes] = useState<Note[]>([])
@@ -23,6 +28,21 @@ export function NotesApp() {
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const isMobile = useIsMobile()
   const [isEditing, setIsEditing] = useState(false)
+
+  const handleRevert = useCallback(async (revertedNote: Note, commitHash: string) => {
+    try {
+      const saved = await updateNoteOnServer(revertedNote.id, revertedNote, `Reverted to ${commitHash.slice(0, 7)}`)
+      setNotes((prev) =>
+        prev.map((note) => (note.id === saved.id ? saved : note))
+      )
+      setSelectedNoteId(revertedNote.id)
+      setDraftTitle(saved.title)
+      setDraftContent(saved.content)
+      setIsEditing(false)
+    } catch (err) {
+      console.error(err)
+    }
+  }, [])
   const [draftTitle, setDraftTitle] = useState("")
   const [draftContent, setDraftContent] = useState("")
 
@@ -215,72 +235,83 @@ export function NotesApp() {
     />
   )
 
+  const editorPanel = selectedNote ? (
+    <MarkdownEditor
+      note={selectedNote}
+      isEditing={isEditing}
+      draftTitle={draftTitle}
+      draftContent={draftContent}
+      onEdit={handleEnterEditMode}
+      onSave={handleSave}
+      onCancel={handleCancelEdit}
+      onDelete={() => {
+        if (!selectedNoteId) return
+        const shouldDelete = window.confirm(
+          "Delete this note? This action cannot be undone."
+        )
+        if (!shouldDelete) return
+        handleDeleteNote(selectedNoteId)
+        setIsEditing(false)
+      }}
+      onContentChange={handleContentChange}
+      onTitleChange={handleTitleChange}
+      onRevert={handleRevert}
+    />
+  ) : (
+    <div className="flex h-full flex-col items-center justify-center gap-4 text-muted-foreground">
+      <FileText className="h-16 w-16 opacity-50" />
+      <div className="text-center">
+        <p className="text-lg font-medium">No note selected</p>
+        <p className="mt-1 text-sm">
+          Create a new note or select one from the sidebar
+        </p>
+      </div>
+      <Button onClick={handleCreateNote} className="mt-4">
+        Create Note
+      </Button>
+    </div>
+  )
+
   return (
     <div className="flex h-screen overflow-hidden bg-background">
       {/* Desktop sidebar */}
       {!isMobile && (
-        <div className="hidden w-72 shrink-0 border-r border-border md:block">
-          {sidebarContent}
-        </div>
+        <ResizablePanelGroup direction="horizontal" className="hidden md:flex">
+          <ResizablePanel defaultSize={22} minSize={14} maxSize={40}>
+            <div className="h-full border-r border-border">
+              {sidebarContent}
+            </div>
+          </ResizablePanel>
+          <ResizableHandle withHandle />
+          <ResizablePanel defaultSize={78} minSize={40}>
+            {editorPanel}
+          </ResizablePanel>
+        </ResizablePanelGroup>
       )}
 
       {/* Mobile sidebar */}
       {isMobile && (
-        <Sheet open={sidebarOpen} onOpenChange={setSidebarOpen}>
-          <SheetTrigger asChild>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="absolute left-4 top-4 z-10 md:hidden"
-            >
-              <Menu className="h-5 w-5" />
-              <span className="sr-only">Toggle sidebar</span>
-            </Button>
-          </SheetTrigger>
-          <SheetContent side="left" className="w-72 p-0">
-            {sidebarContent}
-          </SheetContent>
-        </Sheet>
-      )}
-
-      {/* Main content */}
-      <div className="flex-1 overflow-hidden">
-        {selectedNote ? (
-          <MarkdownEditor
-            note={selectedNote}
-            isEditing={isEditing}
-            draftTitle={draftTitle}
-            draftContent={draftContent}
-            onEdit={handleEnterEditMode}
-            onSave={handleSave}
-            onCancel={handleCancelEdit}
-            onDelete={() => {
-              if (!selectedNoteId) return
-              const shouldDelete = window.confirm(
-                "Delete this note? This action cannot be undone."
-              )
-              if (!shouldDelete) return
-              handleDeleteNote(selectedNoteId)
-              setIsEditing(false)
-            }}
-            onContentChange={handleContentChange}
-            onTitleChange={handleTitleChange}
-          />
-        ) : (
-          <div className="flex h-full flex-col items-center justify-center gap-4 text-muted-foreground">
-            <FileText className="h-16 w-16 opacity-50" />
-            <div className="text-center">
-              <p className="text-lg font-medium">No note selected</p>
-              <p className="mt-1 text-sm">
-                Create a new note or select one from the sidebar
-              </p>
-            </div>
-            <Button onClick={handleCreateNote} className="mt-4">
-              Create Note
-            </Button>
+        <div className="flex h-full w-full">
+          <Sheet open={sidebarOpen} onOpenChange={setSidebarOpen}>
+            <SheetTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="absolute left-4 top-4 z-10"
+              >
+                <Menu className="h-5 w-5" />
+                <span className="sr-only">Toggle sidebar</span>
+              </Button>
+            </SheetTrigger>
+            <SheetContent side="left" className="w-72 p-0">
+              {sidebarContent}
+            </SheetContent>
+          </Sheet>
+          <div className="flex-1 overflow-hidden">
+            {editorPanel}
           </div>
-        )}
-      </div>
+        </div>
+      )}
     </div>
   )
 }
